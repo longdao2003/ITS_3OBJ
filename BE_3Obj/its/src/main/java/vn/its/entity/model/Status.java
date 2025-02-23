@@ -23,8 +23,8 @@ public class Status {
 
     private Long id;
 
-    private String title;
-
+    private  String title;
+    private  String description;
 
     @OneToMany(mappedBy = "status")
     private List<SubTask> subTasks;

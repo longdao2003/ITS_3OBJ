@@ -1,6 +1,9 @@
 package vn.its.entity.model;
 
 
+
+
+
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -8,8 +11,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.PrimaryKeyJoinColumn;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,13 +29,16 @@ public class SubTask {
 
     private String title;
     
+
+    private int process;
+    private String description;
     @ManyToOne
     @JoinColumn(name = "status")
     private Status status;
 
 
-    @OneToOne(mappedBy = "subTask")
-    @PrimaryKeyJoinColumn
+    @ManyToOne()
+    @JoinColumn(name = "task")
     private Task task;
 
 }

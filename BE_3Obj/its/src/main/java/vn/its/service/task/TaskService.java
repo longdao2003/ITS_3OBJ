@@ -1,0 +1,13 @@
+package vn.its.service.task;
+
+import vn.its.entity.request.TaskDTO;
+import vn.its.entity.respone.ResponeAPI;
+
+public interface TaskService {
+    ResponeAPI getAllTask();
+    ResponeAPI addTask(TaskDTO taskDTO);
+
+    ResponeAPI editTask(Long id, TaskDTO taskDTO);
+    ResponeAPI deleteTask(Long id);
+
+}
