@@ -2,18 +2,19 @@ package vn.its.service.subtask;
 
 
 
-import java.util.stream.Stream;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import vn.its.entity.model.Status;
 import vn.its.entity.model.SubTask;
 import vn.its.entity.model.Task;
 import vn.its.entity.request.SubTaskDTO;
 import vn.its.entity.respone.ResponeAPI;
-import vn.its.exception.DataExistException;
-import vn.its.exception.DataNotFoundException;
+import vn.its.exception.ApiException;
 import vn.its.mapping.SubTaskMapping;
+import vn.its.repository.StatusRepository;
 import vn.its.repository.SubTaskRepository;
 import vn.its.repository.TaskRepository;
 
@@ -25,86 +26,127 @@ public class SubTaskServiceImpl implements SubTaskService {
     
     @Autowired
     TaskRepository taskRepository;
-    public ResponeAPI getAllSubTask(){
-        return ResponeAPI.builder()
-        .status(true)
-        .message("Get All SubTask Data Success")
-        .data(subTaskRepository.findAll().stream().map(SubTaskMapping::toSubTaskRespone).toList())
-        .build();
 
+    @Autowired 
+    StatusRepository statusRepository;
+    
+    @Override
+    public ResponeAPI getAllSubTask(Long taskId) {
+        
+        if(!taskRepository.findById(taskId).isPresent()){
+            throw new ApiException("Task không tồn tại");
+        }
+        Task task=taskRepository.findById(taskId).get();
+        
+        return  ResponeAPI.builder().status(true).message("Get All SubTask Success")
+        .data(subTaskRepository.findAllByTask(task).stream().map(SubTaskMapping::toSubTaskRespone).toList()).build(); 
     }
 
-    public ResponeAPI addSubTask(Long taskId, SubTaskDTO subTaskDTO){
-        
-        taskRepository.findById(taskId)
-        .orElseThrow(() ->  new DataNotFoundException("Task is not exist"));
+    @Override
+    public ResponeAPI addSubTask(Long taskId, SubTaskDTO subTaskDTO) {
+        if(!taskRepository.findById(taskId).isPresent()){
+            throw new ApiException("Task không tồn tại");
+        }
+        Task task=taskRepository.findById(taskId).get();
+        SubTask subTask=SubTaskMapping.toSubTask(subTaskDTO);
+        Status statusHoanThanh=statusRepository.findById(1l).get();
+        Status statusKhongHoanThanh=statusRepository.findById(2l).get();
+        List<SubTask> listSubTaskIsChildOfTask=subTaskRepository.findAllByTask(task);
 
+        for (var t: listSubTaskIsChildOfTask){
 
-        
-        subTaskRepository.findByTitle(subTaskDTO.getTitle().trim().toLowerCase())
-        .ifPresent((data) -> new DataExistException("SubTask is already exists"));
+            if (t.getTitle().equals(subTaskDTO.getTitle())){
+                throw new ApiException("SubTask này đã tồn tại trong task");
+            }
+        }
+        subTask.setTask(task);
+        subTask.setStatus(statusRepository.findById(subTaskDTO.getIdStatus()).get());
+        subTaskRepository.save(subTask);
 
-        if ((subTaskDTO.getProcess() == 100 && subTaskDTO.getStatus().trim().toLowerCase() != "hoànthành") 
-        ||  (subTaskDTO.getProcess() != 100 && subTaskDTO.getStatus().trim().toLowerCase() == "hoànthành")){
-            throw new  IllegalArgumentException("Process and Status illegal") ;
+        Long countHoanThanhSubTask=listSubTaskIsChildOfTask.stream().filter(data -> data.getProcess()==(100)).count();
+        System.out.println(countHoanThanhSubTask);
+        task.setProcess((int)( countHoanThanhSubTask *100 / listSubTaskIsChildOfTask.size()));
+        System.out.println(task.getProcess());
+       if (task.getProcess()==100){
+        task.setStatus(statusHoanThanh);
+       }
+        else if(task.getProcess()!=100 && task.getStatus()==statusHoanThanh){
+            task.setStatus(statusKhongHoanThanh);
+       } 
+       taskRepository.save(task);
+        return ResponeAPI.builder().status(true).message("Add SubTask Success").data(null).build();
+    }
+
+    @Override
+    public ResponeAPI editSubTask(Long taskId, Long subTaskId, SubTaskDTO subTaskDTO) {
+
+        if(!taskRepository.findById(taskId).isPresent()){
+            throw new ApiException("Task không tồn tại");
+        }
+        if (!subTaskRepository.findById(subTaskId).isPresent()){
+            throw new ApiException("SubTask cần sửa không tồn tại");
         }
 
+        Task task=taskRepository.findById(taskId).get();
+        SubTask subTask=SubTaskMapping.toSubTask(subTaskDTO);
+        Status statusHoanThanh=statusRepository.findById(1l).get();
+        Status statusKhongHoanThanh=statusRepository.findById(2l).get();
+        List<SubTask> listSubTaskIsChildOfTask=subTaskRepository.findAllByTask(task);
        
-        SubTask subTask=SubTaskMapping.toSubTask(subTaskDTO);
-        subTaskRepository.save(subTask);
-        
+        for (var t: listSubTaskIsChildOfTask){
 
-        Stream<SubTask> streamSubTask=  subTaskRepository.findByTaskIdJPQL(taskId).stream();
-        Task task=taskRepository.findById(taskId).get();
-        task.setProcess((int) (Math.round( (double) streamSubTask.filter(data -> data.getStatus().getTitle().equals("Hoàn thành")).count() / streamSubTask.count())));
-
-        taskRepository.save(task);
-        
-        return null;
-        
-
-    }
-
-    public ResponeAPI editSubTask(Long taskId,Long subTaskId, SubTaskDTO subTaskDTO){
-        taskRepository.findById(taskId)
-        .orElseThrow(() ->  new DataNotFoundException("Task is not exist"));
-        
-        subTaskRepository.findById(subTaskId).orElseThrow(() -> new DataNotFoundException("SubTask is not exist"));
-
-        subTaskRepository.findByTitle(subTaskDTO.getTitle().trim().toLowerCase())
-        .ifPresent((data) -> new DataExistException("SubTask title mustn't duplicate"));
-
-
-        if ((subTaskDTO.getProcess() == 100 && subTaskDTO.getStatus().trim().toLowerCase() != "hoànthành") 
-        ||  (subTaskDTO.getProcess() != 100 && subTaskDTO.getStatus().trim().toLowerCase() == "hoànthành")){
-            throw new  IllegalArgumentException("Process and Status illegal") ;
+            if (t.getTitle().equals(subTaskDTO.getTitle()) && t.getId()!=subTaskId){
+                throw new ApiException("SubTask này đã tồn tại trong task");
+            }
         }
 
-        SubTask subTask=SubTaskMapping.toSubTask(subTaskDTO);
         subTask.setId(subTaskId);
+        subTask.setTask(task);
+        subTask.setStatus(statusRepository.findById(subTaskDTO.getIdStatus()).get());
         subTaskRepository.save(subTask);
 
-        
-        Stream<SubTask> streamSubTask=  subTaskRepository.findByTaskIdJPQL(taskId).stream();
-        Task task=taskRepository.findById(taskId).get();
-        task.setProcess((int) (Math.round( (double) streamSubTask.filter(data -> data.getStatus().getTitle().equals("Hoàn thành")).count() / streamSubTask.count())));
-
-        return null;
+        Long countHoanThanhSubTask=listSubTaskIsChildOfTask.stream().filter(data -> data.getProcess()==(100)).count();
+        System.out.println(countHoanThanhSubTask);
+        task.setProcess((int)( countHoanThanhSubTask *100 / listSubTaskIsChildOfTask.size()));
+        System.out.println(task.getProcess());
+        if (task.getProcess()==100){
+        task.setStatus(statusHoanThanh);
+       }
+        else if(task.getProcess()!=100 && task.getStatus()==statusHoanThanh){
+            task.setStatus(statusKhongHoanThanh);
+       } 
+       taskRepository.save(task);
+       
+        return ResponeAPI.builder().status(true).message("Update SubTask Success").data(null).build();
     }
 
-    public ResponeAPI deleteSubTask(Long subTaskId, Long taskId){
-        subTaskRepository.findById(subTaskId).orElseThrow(() -> new DataNotFoundException("SubTask is not exist"));
-
-        taskRepository.findById(taskId)
-        .orElseThrow(() ->  new DataNotFoundException("Task is not exist"));
-
-        subTaskRepository.deleteById(subTaskId);
-
-        Stream<SubTask> streamSubTask=  subTaskRepository.findByTaskIdJPQL(taskId).stream();
+    @Override
+    public ResponeAPI deleteSubTask(Long taskId, Long subTaskId) {
+        if(!taskRepository.findById(taskId).isPresent()){
+            throw new ApiException("Task không tồn tại");
+        }
+        if (!subTaskRepository.findById(subTaskId).isPresent()){
+            throw new ApiException("SubTask cần xóa không tồn tại");
+        }
+        
+        subTaskRepository.delete(subTaskRepository.findById(subTaskId).get());
         Task task=taskRepository.findById(taskId).get();
-        task.setProcess((int) (Math.round( (double) streamSubTask.filter(data -> data.getStatus().getTitle().equals("Hoàn thành")).count() / streamSubTask.count())));
+        Status statusHoanThanh=statusRepository.findById(1l).get();
+        Status statusKhongHoanThanh=statusRepository.findById(2l).get();
+        List<SubTask> listSubTaskIsChildOfTask=subTaskRepository.findAllByTask(task);
 
+        Long countHoanThanhSubTask=listSubTaskIsChildOfTask.stream().filter(data -> data.getProcess()==(100)).count();
 
-        return null;
+        task.setProcess((int)( countHoanThanhSubTask *100 / listSubTaskIsChildOfTask.size()));
+        if (task.getProcess()==100){
+            task.setStatus(statusHoanThanh);
+           }
+            else if(task.getProcess()!=100 && task.getStatus()==statusHoanThanh){
+                task.setStatus(statusKhongHoanThanh);
+           }
+           taskRepository.save(task);
+
+           return ResponeAPI.builder().status(true).message("Delete SubTask Success").data(null).build();
+        
     }
 }

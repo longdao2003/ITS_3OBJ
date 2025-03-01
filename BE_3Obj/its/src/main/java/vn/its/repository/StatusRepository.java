@@ -11,14 +11,17 @@ import org.springframework.stereotype.Repository;
 
 import vn.its.entity.model.Status;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface StatusRepository extends JpaRepository<Status,Long> {
    
 
-    @Query("SELECT e FROM Status e WHERE LOWER(REPLACE(e.title, ' ', '')) = :title")
-    Optional<Status> findByTitle(@Param("title") String title);
+    Optional<Status> findByTitle(String title);
 
-    void deleteByTitle (String title);
+    @Query("SELECT s FROM Status s WHERE s.title = :title AND s.id <> :id")
+    List<Status> findDuplicatesByTitleExcludingId(@Param("title") String title, @Param("id") Long id);
+    
+
 }

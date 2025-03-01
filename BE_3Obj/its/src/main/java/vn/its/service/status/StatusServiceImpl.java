@@ -1,33 +1,36 @@
 package vn.its.service.status;
 
 
-import java.util.stream.Collectors;
+import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import lombok.RequiredArgsConstructor;
 import vn.its.entity.model.Status;
+import vn.its.entity.model.SubTask;
+import vn.its.entity.model.Task;
 import vn.its.entity.request.StatusDTO;
 import vn.its.entity.respone.ResponeAPI;
-import vn.its.exception.DataExistException;
-import vn.its.exception.DataNotFoundException;
+import vn.its.exception.ApiException;
 import vn.its.mapping.StatusMapping;
 import vn.its.repository.StatusRepository;
 import vn.its.repository.SubTaskRepository;
 import vn.its.repository.TaskRepository;
 
 @Service
+@RequiredArgsConstructor
 public class StatusServiceImpl implements StatusService{
     
-    @Autowired
-    StatusRepository statusRepository;
+   
+    private final StatusRepository statusRepository;
 
-    @Autowired
-    TaskRepository taskRepository;
     
-    @Autowired
-    SubTaskRepository subTaskRepository;
+    private final TaskRepository taskRepository;
+    
+    
+    private final SubTaskRepository subTaskRepository;
 
+    @Override
     public ResponeAPI getAllStatus(){
         return ResponeAPI.builder()
         .status(true)
@@ -36,58 +39,66 @@ public class StatusServiceImpl implements StatusService{
         .build();
     }
 
-    public ResponeAPI addStatus(StatusDTO statusDTO) throws DataExistException{
-        statusRepository.findByTitle(statusDTO.getTitle().trim().toLowerCase())
-        .ifPresent(task -> new DataExistException("Status Title Exist"));
-
-        statusRepository.save(StatusMapping.toStatus(statusDTO));
-
-
+    @Override
+    public ResponeAPI addStatus(StatusDTO statusDTO) {
+        Status s=StatusMapping.toStatus(statusDTO);
+        try{
+            statusRepository.save(s);    
+        }
+        catch(Exception e){
+                throw new ApiException("Status này đã tồn tại trong bảng");
+        }
+        
         return ResponeAPI.builder().status(true).message("Add Status Success").data(null).build();
-
     }
 
-    public ResponeAPI editStatus(String title, StatusDTO statusDTO) throws DataExistException,DataNotFoundException,IllegalArgumentException{
-        statusRepository.findByTitle(statusDTO.getTitle().trim().toLowerCase())
-        .ifPresent((data) -> new DataExistException("Update Title Existed"));
-       
-        statusRepository.findByTitle(title.trim().toLowerCase())
-        .orElseThrow(() -> new DataNotFoundException("Status is not exitst"));
-       
-        if (statusDTO.getTitle().trim().toLowerCase() == "hoànthành" ||  statusDTO.getTitle().trim().toLowerCase() == "khônghoànthành" ){
-            throw new IllegalArgumentException("Cannot update Hoan thanh or Khong hoan thanh data");
+    @Override
+    public ResponeAPI editStatus(Long id, StatusDTO statusDTO) {
+        statusRepository.findById(id).orElseThrow(() -> new ApiException("Status cần cập nhật không tồn tại"));
+
+        if (id==1 || id==2){
+            throw new ApiException("Không thể chỉnh sửa trường Hoàn thành và Chưa hoàn thành") ;
+        }
+
+        String titleUpdate=statusDTO.getTitle(); 
+        if (!statusRepository.findDuplicatesByTitleExcludingId(titleUpdate, id).isEmpty()){
+            throw new ApiException("Đã có Status khác trùng giá trị title ");
         }
         
-        
-        Status s=statusRepository.findByTitle(title.trim().toLowerCase()).get();
-        s.setTitle(statusDTO.getTitle());
-        s.setDescription(statusDTO.getDescription());
-        
-        statusRepository.save(s);
+        Status s=StatusMapping.toStatus(statusDTO);
+        s.setId(id);
+        try{
+            statusRepository.save(s);
+        }
+        catch(Exception e){
+            throw new ApiException("Các trường status mới đã tồn tại trong bảng");
+        }
         return ResponeAPI.builder().status(true).message("Edit Status Success").data(null).build();
-    
-    
     }
 
-    public ResponeAPI deleteStatus(String title) throws DataExistException,DataNotFoundException{
-        
-        if (title.trim().toLowerCase() == "hoànthành" ||  title.trim().toLowerCase() == "khônghoànthành" ){
-            throw new IllegalArgumentException("Cannot delete Hoan thanh or Khong hoan thanh data");
+    @Override
+    public ResponeAPI deleteStatus(Long id){
+        if (!statusRepository.existsById(id)){
+            throw new ApiException("Status cần xóa không tồn tại");
         }
-         
-        statusRepository.findByTitle(title.trim().toLowerCase())
-        .orElseThrow(() -> new DataNotFoundException("Status Title isnot Existed"));
-        
 
-        taskRepository.saveAll(taskRepository.findByStatus(statusRepository.findByTitle(title).get())
-        .stream().peek(data -> data.setTitle("Chưa hoàn thành")).collect(Collectors.toList()));
-        // Status in Task and SubTask change
-        subTaskRepository.saveAll(subTaskRepository.findByStatus(statusRepository.findByTitle(title).get())
-        .stream().peek(data -> data.setTitle("Chưa hoàn thành")).collect(Collectors.toList()));
+        if (id==1 || id==2){
+            throw new ApiException("Không thể chỉnh sửa trường Hoàn thành và Chưa hoàn thành") ;
+        }
+        Status s=statusRepository.findById(id).get();
+        Status statusKhongHoanThanh=statusRepository.findById(2l).get();
         
-
-        statusRepository.deleteByTitle(title);
+        List<SubTask> subTask=subTaskRepository.findAllByStatus(s);
+        List<SubTask> subTaskChange=subTask.stream().peek(data -> data.setStatus(statusKhongHoanThanh)).toList();
+        subTaskRepository.saveAll(subTaskChange);
+        
+        List<Task> task=taskRepository.findAllByStatus(s);
+        List<Task> taskChange=task.stream().peek(data -> data.setStatus(statusKhongHoanThanh)).toList();
+        taskRepository.saveAll(taskChange);
+        
+        
+        statusRepository.deleteById(id);
+        System.out.println("Hello babe");
         return ResponeAPI.builder().status(true).message("Delete Status Success").data(null).build();
-
     }
 }

@@ -15,11 +15,16 @@ import vn.its.entity.model.Task;
 
 @Repository
 public interface TaskRepository extends JpaRepository<Task, Long> {
-    List<Task> findByStatus(Status status);
+    List<Task> findAllByStatus(Status status);
 
 
-    @Query("SELECT e FROM Task e WHERE LOWER(REPLACE(e.title, ' ', '')) = :title")
-    Optional<Task> findByTitle(@Param("title") String title);
+   
+    Optional<Task> findByTitle( String title);
+
+    @Query("SELECT t FROM Task t WHERE t.title = :title AND t.id <> :id")
+    List<Task> findDuplicatesByTitleExcludingId(@Param("title") String title, @Param("id") Long id);
+   
+
    
     
 

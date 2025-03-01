@@ -1,14 +1,17 @@
 package vn.its.service.task;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 import org.springframework.stereotype.Service;
 
 import vn.its.entity.model.Status;
+import vn.its.entity.model.SubTask;
 import vn.its.entity.model.Task;
 import vn.its.entity.request.TaskDTO;
 import vn.its.entity.respone.ResponeAPI;
-import vn.its.exception.DataExistException;
+import vn.its.exception.ApiException;
 import vn.its.mapping.TaskMapping;
 import vn.its.repository.StatusRepository;
 import vn.its.repository.SubTaskRepository;
@@ -26,60 +29,99 @@ public class TaskServiceImpl implements TaskService {
 
    @Autowired
    StatusRepository statusRepository;
-   
-   public ResponeAPI getAllTask(){
+
+
+@Override
+public ResponeAPI getAllTask() {
     return ResponeAPI.builder()
     .status(true)
     .message("Get All Task Data Success")
     .data(taskRepository.findAll().stream().map(TaskMapping::toTaskRespone).toList())
     .build();
-   }
-   public ResponeAPI addTask(TaskDTO taskDTO){
+}
+
+
+@Override
+public ResponeAPI addTask(TaskDTO taskDTO) {
+
     
-    taskRepository.findByTitle(taskDTO.getTitle().trim().toLowerCase())
-    .ifPresent(data -> new DataExistException("Task is exist"));
-    
-    if ((taskDTO.getProcess() == 100 && taskDTO.getStatus().trim().toLowerCase() != "hoànthành") 
-    ||  (taskDTO.getProcess() != 100 && taskDTO.getStatus().trim().toLowerCase() == "hoànthành")){
-        throw new  IllegalArgumentException("Process and Status illegal") ;
+    Task t=TaskMapping.toTask(taskDTO);
+    t.setStatus(statusRepository.findById(taskDTO.getStatus()).get());
+    try{
+        taskRepository.save(t);
     }
-
-    taskRepository.save(TaskMapping.toTask(taskDTO));
-    return null;
-};
-
-   public ResponeAPI editTask(Long id, TaskDTO taskDTO){
-    taskRepository.findByTitle(taskDTO.getTitle().trim().toLowerCase())
-    .ifPresent(data -> new DataExistException("Task must not duplicated"));
-
-
-    if ((taskDTO.getProcess() == 100 && taskDTO.getStatus().trim().toLowerCase() != "hoànthành") 
-    ||  (taskDTO.getProcess() != 100 && taskDTO.getStatus().trim().toLowerCase() == "hoànthành")){
-        throw new  IllegalArgumentException("Process and Status illegal") ;
+    catch(Exception e){
+        throw new ApiException("Task thêm mới đã tồn tại");
     }
     
+   
+    return ResponeAPI.builder()
+    .status(true)
+    .message("Add Task Data Success")
+    .data(null)
+    .build();
+}
+
+
+@Override
+public ResponeAPI editTask(Long idTask, TaskDTO taskDTO) {
     
-    if (!subTaskRepository.findByTaskIdJPQL(id).isEmpty()){
-        Status s = statusRepository.findById(1l).get();
-        if (taskDTO.getStatus().trim().toLowerCase() == "hoànthành" ){
-            subTaskRepository.saveAll(subTaskRepository.findByTaskIdJPQL(id).stream().peek(data -> {
-              data.setProcess(100);
-              data.setStatus(s);
-          }).toList()) ;
-          }
-        else if (taskDTO.getStatus().trim().toLowerCase() == "chưahoànthành" ){
-            subTaskRepository.saveAll(subTaskRepository.findByTaskIdJPQL(id).stream().
-            filter(data -> data.getStatus()==s).peek(data -> {
-              data.setProcess(99);
-              data.setStatus(statusRepository.findById(2l).get());
-          }).toList()) ;
-          }
+    if(!taskRepository.findById(idTask).isPresent()){
+        throw new ApiException("Task cần sửa không tồn tại");
     }
-    Task task=TaskMapping.toTask(taskDTO);
-    task.setId(id);
-    taskRepository.save(task);
-  
-    return null;
-};
-   public ResponeAPI deleteTask(Long id){return null;};
+    Task t=TaskMapping.toTask(taskDTO);
+    t.setStatus(statusRepository.findById(taskDTO.getStatus()).get());
+    t.setId(idTask);
+    try{
+        taskRepository.save(t);
+    }
+    catch(Exception e){
+        throw new ApiException("Task thêm mới đã tồn tại");
+    }
+    Status statusHoanThanh=statusRepository.findById(1l).get();
+    Status statusKhongHoanThanh=statusRepository.findById(2l).get();
+    List<SubTask> subTask=subTaskRepository.findAllByTask(t);
+   
+    if (taskDTO.getProcess()==100){
+        subTask=subTask.stream().map(data -> { 
+            data.setStatus(statusHoanThanh);
+            data.setProcess(100);
+            return data;
+        }).toList();
+    }
+    else{
+        subTask=subTask.stream().filter(data -> data.getStatus().equals(statusKhongHoanThanh)).map(data -> { 
+            data.setStatus(statusKhongHoanThanh);
+            data.setProcess(99);
+            return data;
+        }).toList();
+    }
+
+    
+
+    subTaskRepository.saveAll(subTask);
+
+    return ResponeAPI.builder()
+    .status(true)
+    .message("Edit Task Data Success")
+    .data(null)
+    .build();
+}
+
+
+@Override
+public ResponeAPI deleteTask(Long idTask) {
+    if(!taskRepository.findById(idTask).isPresent()){
+        throw new ApiException("Task cần xóa không tồn tại");
+    }
+    taskRepository.deleteById(idTask);
+    
+    return ResponeAPI.builder()
+    .status(true)
+    .message("Delete Task Data Success")
+    .data(null)
+    .build();
+}
+   
+   
 }

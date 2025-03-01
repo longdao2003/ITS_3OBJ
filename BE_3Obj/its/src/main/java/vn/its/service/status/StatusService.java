@@ -8,9 +8,9 @@ public interface StatusService {
 
     ResponeAPI addStatus(StatusDTO statusDTO);
 
-    ResponeAPI editStatus(String title, StatusDTO statusDTO);
+    ResponeAPI editStatus(Long id, StatusDTO statusDTO);
 
-    ResponeAPI deleteStatus(String title);
+    ResponeAPI deleteStatus(Long id);
 
 
 } 

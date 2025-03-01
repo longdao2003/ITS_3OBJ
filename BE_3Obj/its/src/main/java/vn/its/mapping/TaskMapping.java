@@ -1,6 +1,5 @@
 package vn.its.mapping;
 
-import vn.its.entity.model.Status;
 import vn.its.entity.model.Task;
 import vn.its.entity.request.TaskDTO;
 import vn.its.entity.respone.TaskRespone;
@@ -11,7 +10,6 @@ public class TaskMapping {
         .process(taskDTO.getProcess())
         .description(taskDTO.getDescription())
         .title(taskDTO.getTitle())
-        .status(Status.builder().title(taskDTO.getStatus()).build() )
         .build();
     }
     public static TaskRespone toTaskRespone(Task task){

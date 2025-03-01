@@ -2,6 +2,8 @@ package vn.its.entity.model;
 
 import java.util.List;
 
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -24,7 +26,7 @@ public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
+     @Column(unique = true, nullable = false, length= 20 )
     private String title;
 
     private int process;
@@ -35,9 +37,7 @@ public class Task {
     private Status status;
 
 
-    @OneToMany(mappedBy = "task")
+    @OneToMany(mappedBy = "task",cascade = CascadeType.ALL)
     private List<SubTask> subTask;
 
-
-   
 }

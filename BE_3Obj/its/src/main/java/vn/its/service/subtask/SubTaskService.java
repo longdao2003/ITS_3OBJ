@@ -5,7 +5,7 @@ import vn.its.entity.request.SubTaskDTO;
 import vn.its.entity.respone.ResponeAPI;
 
 public interface SubTaskService {
-     ResponeAPI getAllSubTask();
+     ResponeAPI getAllSubTask(Long taskId);
 
     ResponeAPI addSubTask(Long taskId, SubTaskDTO subTaskDTO);
 

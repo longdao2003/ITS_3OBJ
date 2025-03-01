@@ -2,6 +2,7 @@ package vn.its.entity.model;
 
 import java.util.List;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -23,8 +24,11 @@ public class Status {
 
     private Long id;
 
+    @Column(unique = true, nullable = false, length= 20 )
     private  String title;
+    
     private  String description;
+
 
     @OneToMany(mappedBy = "status")
     private List<SubTask> subTasks;

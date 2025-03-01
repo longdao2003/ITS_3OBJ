@@ -7,7 +7,7 @@ public interface TaskService {
     ResponeAPI getAllTask();
     ResponeAPI addTask(TaskDTO taskDTO);
 
-    ResponeAPI editTask(Long id, TaskDTO taskDTO);
-    ResponeAPI deleteTask(Long id);
+    ResponeAPI editTask(Long idTask, TaskDTO taskDTO);
+    ResponeAPI deleteTask(Long idTask);
 
 }
